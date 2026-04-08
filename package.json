@@ -1,0 +1,23 @@
+{
+  "name": "ai-stats",
+  "version": "1.0.0",
+  "description": "AIGC code statistics annotation tool for Claude Code. Inserts/updates comments recording AI tool, author, line count, and date.",
+  "main": "scripts/ai_stats.js",
+  "scripts": {
+    "start": "node scripts/ai_stats.js",
+    "test": "node scripts/ai_stats.js --dry-run --all-files"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "aigc",
+    "ai-stats",
+    "claude-code",
+    "skill",
+    "code-annotation",
+    "ai-generated",
+    "statistics"
+  ],
+  "license": "MIT"
+}

@@ -12,7 +12,7 @@
 ## Annotation Format / 标注格式
 
 ```python
-# AIGC:cursor|author:lisi|lines:28|dates:2025-04
+# AIGC:claude|author:lisi|lines:28|dates:2025-04
 ```
 
 | Field | Description | Example |
@@ -66,7 +66,7 @@ Just describe what you want in natural language:
 ```bash
 cd ~/.claude/skills/ai-stats
 
-# Annotate all changed files / 标注所有变更文件
+# Annotate staged (git add) files / 标注 git add 后的文件
 node scripts/ai_stats.js
 
 # Scan entire repo / 全量扫描仓库
@@ -102,7 +102,7 @@ Auto-skips: `.git`, `node_modules`, `vendor`, `__pycache__`, `.venv`, `dist`, `b
 
 ```
 --all-files, -a    Scan all code files in repo (not just changed)
---scope, -s <s>    Change mode scope: working | staged | committed | all (default: all)
+--scope, -s <s>    Change mode scope: working | staged | committed | all (default: staged)
 --tool, -t <name>  AI tool name (default: cursor)
 --author <name>    Author name (default: git user.name)
 --dry-run, -n      Stats only, no file modification

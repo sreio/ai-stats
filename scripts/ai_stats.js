@@ -247,6 +247,82 @@ function countLines(filePath) {
 
 // ---- 标注逻辑 ----
 
+/**
+ * 找到 AIGC 注释的插入位置。
+ * 跳过文件头部的语法必需行（<?php, #! 等）、声明行（package, import）、注释块、装饰器。
+ */
+function findInsertPoint(lines, ext) {
+  let i = 0;
+  const lowerExt = ext.toLowerCase();
+
+  const skipBlanks = () => { while (i < lines.length && lines[i].trim() === "") i++; };
+
+  skipBlanks();
+
+  // 1. Shebang
+  if (i < lines.length && lines[i].startsWith("#!")) i++;
+
+  // 2. 语法致命行 — 特定语言
+  if (lowerExt === ".php" && i < lines.length && /^<\?(php|=)/.test(lines[i].trim())) i++;
+  if (i < lines.length && /^<\?xml/i.test(lines[i].trim())) i++;
+  if (i < lines.length && /^<!DOCTYPE/i.test(lines[i].trim())) i++;
+  if ((lowerExt === ".py" || lowerExt === ".rb") && i < lines.length
+      && /^#\s*-\*-\s*coding/i.test(lines[i].trim())) i++;
+  if (lowerExt === ".rb" && i < lines.length
+      && /^#\s*frozen_string_literal/i.test(lines[i].trim())) i++;
+  if (lowerExt === ".ps1" && i < lines.length
+      && /^#\s*requires/i.test(lines[i].trim())) i++;
+
+  // 3. 跳过连续的前导注释块（版权头、许可证、JSDoc 等）
+  while (i < lines.length) {
+    const line = lines[i].trim();
+    if (line === "") { i++; continue; }
+
+    // 单行注释: //, #, --
+    if (/^(\/\/|#|--)(\s|$)/.test(line)) { i++; continue; }
+
+    // HTML 注释 <!-- ... -->
+    if (/^<!--/.test(line)) {
+      if (!/-->/.test(line)) {
+        while (i < lines.length && !/-->/.test(lines[i])) i++;
+      }
+      i++;
+      continue;
+    }
+
+    // 多行注释 /* ... */
+    if (/^\/\*/.test(line)) {
+      if (!/\*\//.test(line)) {
+        while (i < lines.length && !/\*\//.test(lines[i])) i++;
+      }
+      i++;
+      continue;
+    }
+
+    break;
+  }
+
+  skipBlanks();
+
+  // 4. "use strict"（注释块之后检查）
+  if (/^\.(js|jsx|ts|tsx|mjs|cjs)$/.test(lowerExt) && i < lines.length
+      && /^["']use strict["'];?\s*$/.test(lines[i].trim())) i++;
+
+  // 5. 跳过连续的前导声明行（package, import, using, require, library, declare, extern crate 等）
+  //    和注解/装饰器（@xxx, [Attribute]）— 两者可交替出现
+  const DECL_RE = /^(package\s|import\s|using\s|require\s|library\s|declare\s|extern\s+crate\s|crate_type\s)/;
+  while (i < lines.length) {
+    const line = lines[i].trim();
+    if (line === "") { i++; continue; }
+    if (DECL_RE.test(line)) { i++; continue; }
+    if (/^@[\w.]/.test(line) || /^\[[\w.]/.test(line)) { i++; continue; }
+    break;
+  }
+
+  skipBlanks();
+  return i;
+}
+
 function annotateFile(filePath, aiLines, aiTool, author, dateStr, dryRun) {
   if (shouldSkip(filePath)) return { action: "skipped", reason: "binary/unsupported" };
 
@@ -282,8 +358,7 @@ function annotateFile(filePath, aiLines, aiTool, author, dateStr, dryRun) {
     }
     return { action: "updated", oldCount: oldParsed ? oldParsed.lines : 0, newCount: aiLines };
   } else {
-    let insertAt = 0;
-    if (lines.length > 0 && lines[0].startsWith("#!")) insertAt = 1;
+    const insertAt = findInsertPoint(lines, path.extname(filePath));
 
     if (!dryRun) {
       lines.splice(insertAt, 0, commentLine);
@@ -351,7 +426,7 @@ function formatReport(results, totalFiles, verbose) {
 // ---- 主逻辑 ----
 
 function run(options) {
-  const { scope = "all", dryRun = false, remove = false, allFiles = false, aiTool = "cursor", author = "", verbose = false } = options;
+  const { scope = "staged", dryRun = false, remove = false, allFiles = false, aiTool = "claude", author = "", verbose = false } = options;
 
   const finalAuthor = author || getGitAuthor();
   const dateStr = getCurrentDate();
@@ -405,7 +480,7 @@ function run(options) {
 
 if (require.main === module) {
   const args = process.argv.slice(2);
-  const opts = { scope: "all", dryRun: false, remove: false, allFiles: false, aiTool: "cursor", author: "", verbose: false, json: false };
+  const opts = { scope: "staged", dryRun: false, remove: false, allFiles: false, aiTool: "claude", author: "", verbose: false, json: false };
 
   for (let i = 0; i < args.length; i++) {
     switch (args[i]) {
@@ -425,8 +500,8 @@ AIGC 代码统计标注工具 - 用法:
 
 选项:
   --all-files, -a    扫描仓库中所有代码文件（而非仅变更文件）
-  --scope, -s <s>    变更模式扫描范围: working | staged | committed | all (默认 all)
-  --tool, -t <name>  AI 工具名称 (默认: cursor)
+  --scope, -s <s>    变更模式扫描范围: working | staged | committed | all (默认 staged)
+  --tool, -t <name>  AI 工具名称 (默认: claude)
   --author <name>    作者名 (默认取 git user.name)
   --dry-run, -n      仅统计，不修改文件
   --remove, -r       移除已有的 AIGC 注释
@@ -438,7 +513,7 @@ AIGC 代码统计标注工具 - 用法:
   AIGC:cursor|author:用户名|lines:行数|dates:YYYY-MM
 
 示例:
-  node ai_stats.js                          # 标注所有变更文件
+  node ai_stats.js                          # 标注 git add 后的文件（默认 staged）
   node ai_stats.js --all-files              # 全量扫描并标注
   node ai_stats.js --tool copilot --author zhangsan
   node ai_stats.js --all-files --dry-run    # 仅统计不修改

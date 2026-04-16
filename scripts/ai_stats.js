@@ -162,13 +162,7 @@ function getChangedInsertionsMap(scope) {
       }
     }
   } else {
-    for (const line of git("diff", "--cached", "--numstat").split("\n")) {
-      const parts = line.split("\t");
-      if (parts.length >= 3 && parts[0] !== "-") {
-        const ins = parseInt(parts[0], 10);
-        if (ins > 0) result[parts[2]] = (result[parts[2]] || 0) + ins;
-      }
-    }
+    // working 或 all：统计 unstaged 改动
     for (const line of git("diff", "--numstat").split("\n")) {
       const parts = line.split("\t");
       if (parts.length >= 3 && parts[0] !== "-") {
@@ -176,13 +170,23 @@ function getChangedInsertionsMap(scope) {
         if (ins > 0) result[parts[2]] = (result[parts[2]] || 0) + ins;
       }
     }
-    for (const f of git("ls-files", "--others", "--exclude-standard").split("\n")) {
-      const file = f.trim();
-      if (!file) continue;
-      try {
-        const lines = fs.readFileSync(file, "utf8").split("\n").length;
-        if (lines > 0) result[file] = (result[file] || 0) + lines;
-      } catch { /* skip */ }
+    // all 额外统计 staged 和未跟踪文件
+    if (scope === "all") {
+      for (const line of git("diff", "--cached", "--numstat").split("\n")) {
+        const parts = line.split("\t");
+        if (parts.length >= 3 && parts[0] !== "-") {
+          const ins = parseInt(parts[0], 10);
+          if (ins > 0) result[parts[2]] = (result[parts[2]] || 0) + ins;
+        }
+      }
+      for (const f of git("ls-files", "--others", "--exclude-standard").split("\n")) {
+        const file = f.trim();
+        if (!file) continue;
+        try {
+          const lines = fs.readFileSync(file, "utf8").split("\n").length;
+          if (lines > 0) result[file] = (result[file] || 0) + lines;
+        } catch { /* skip */ }
+      }
     }
   }
   return result;
@@ -199,6 +203,8 @@ function getChangedFiles(scope) {
     for (const line of git("diff", "--name-only").split("\n")) {
       if (line.trim()) files.add(line.trim());
     }
+  }
+  if (scope === "all") {
     for (const line of git("ls-files", "--others", "--exclude-standard").split("\n")) {
       if (line.trim()) files.add(line.trim());
     }
@@ -426,7 +432,7 @@ function formatReport(results, totalFiles, verbose) {
 // ---- 主逻辑 ----
 
 function run(options) {
-  const { scope = "staged", dryRun = false, remove = false, allFiles = false, aiTool = "claude", author = "", verbose = false } = options;
+  const { scope = "working", dryRun = false, remove = false, allFiles = false, aiTool = "claude", author = "", verbose = false } = options;
 
   const finalAuthor = author || getGitAuthor();
   const dateStr = getCurrentDate();
@@ -480,7 +486,7 @@ function run(options) {
 
 if (require.main === module) {
   const args = process.argv.slice(2);
-  const opts = { scope: "staged", dryRun: false, remove: false, allFiles: false, aiTool: "claude", author: "", verbose: false, json: false };
+  const opts = { scope: "working", dryRun: false, remove: false, allFiles: false, aiTool: "claude", author: "", verbose: false, json: false };
 
   for (let i = 0; i < args.length; i++) {
     switch (args[i]) {
@@ -500,7 +506,7 @@ AIGC 代码统计标注工具 - 用法:
 
 选项:
   --all-files, -a    扫描仓库中所有代码文件（而非仅变更文件）
-  --scope, -s <s>    变更模式扫描范围: working | staged | committed | all (默认 staged)
+  --scope, -s <s>    变更模式扫描范围: working | staged | committed | all (默认 working)
   --tool, -t <name>  AI 工具名称 (默认: claude)
   --author <name>    作者名 (默认取 git user.name)
   --dry-run, -n      仅统计，不修改文件

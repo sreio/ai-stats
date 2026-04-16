@@ -102,8 +102,8 @@ Auto-skips: `.git`, `node_modules`, `vendor`, `__pycache__`, `.venv`, `dist`, `b
 
 ```
 --all-files, -a    Scan all code files in repo (not just changed)
---scope, -s <s>    Change mode scope: working | staged | committed | all (default: staged)
---tool, -t <name>  AI tool name (default: cursor)
+--scope, -s <s>    Change mode scope: working | staged | committed | all (default: working)
+--tool, -t <name>  AI tool name (default: claude)
 --author <name>    Author name (default: git user.name)
 --dry-run, -n      Stats only, no file modification
 --remove, -r       Remove all existing AIGC annotations

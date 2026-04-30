@@ -1,8 +1,8 @@
 # ai-stats
 
-> AIGC code statistics & annotation tool for [Claude Code](https://claude.ai/code). Insert/update comments in source files to track AI-generated code — tool, author, line count, and date.
+> AIGC code statistics & annotation tool for [Claude Code](https://claude.ai/code). Inserts comments in source files to track AI-generated code — tool, author, line count, and date.
 
-> AIGC 代码统计标注工具，为 [Claude Code](https://claude.ai/code) 设计。在源文件头部插入/更新注释，记录 AI 工具、作者、行数、日期。
+> AIGC 代码统计标注工具，为 [Claude Code](https://claude.ai/code) 设计。在源文件头部插入注释，记录 AI 工具、作者、行数、日期。
 
 ![Node.js](https://img.shields.io/badge/node-%3E%3D18-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-blue)
@@ -93,6 +93,10 @@ Uses `git diff --numstat` to count insertions in changed files.
 ### All-files Mode / 全文件模式 (`--all-files`)
 
 Recursively scans all code files in the repo.
+
+### Existing Annotations / 已有标注
+
+Existing AIGC comments are preserved. New entries are appended after the last existing AIGC comment, so historical annotations are not overwritten.
 
 Auto-skips: `.git`, `node_modules`, `vendor`, `__pycache__`, `.venv`, `dist`, `build`
 

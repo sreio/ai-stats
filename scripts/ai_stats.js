@@ -4,7 +4,7 @@
 /**
  * AIGC 代码统计标注工具
  *
- * 在每个文件头部插入/更新 AIGC 注释：
+ * 在每个文件头部插入 AIGC 注释：
  *   AIGC:cursor|author:用户名|lines:行数|dates:YYYY-MM
  *
  * 两种模式：
@@ -340,38 +340,30 @@ function annotateFile(filePath, aiLines, aiTool, author, dateStr, dryRun) {
   catch (err) { return { action: "skipped", reason: `cannot read: ${err.message}` }; }
 
   const lines = content.split("\n");
-
-  // 查找现有 AIGC 注释（前15行内）
-  let foundIndex = -1;
-  let oldParsed = null;
-  for (let i = 0; i < Math.min(lines.length, 15); i++) {
-    if (isAigcLine(lines[i])) {
-      foundIndex = i;
-      oldParsed = parseAigcComment(lines[i]);
-      break;
-    }
-  }
-
   const commentLine = makeAigcComment(aiTool, author, aiLines, dateStr, style);
 
-  if (foundIndex >= 0) {
-    if (oldParsed && oldParsed.lines === aiLines && oldParsed.date === dateStr) {
-      return { action: "skipped", reason: "unchanged", count: aiLines };
-    }
-    if (!dryRun) {
-      lines[foundIndex] = commentLine;
-      fs.writeFileSync(filePath, lines.join("\n"), "utf8");
-    }
-    return { action: "updated", oldCount: oldParsed ? oldParsed.lines : 0, newCount: aiLines };
-  } else {
-    const insertAt = findInsertPoint(lines, path.extname(filePath));
-
-    if (!dryRun) {
-      lines.splice(insertAt, 0, commentLine);
-      fs.writeFileSync(filePath, lines.join("\n"), "utf8");
-    }
-    return { action: "added", newCount: aiLines };
+  let lastAigcIndex = -1;
+  for (let i = 0; i < Math.min(lines.length, 30); i++) {
+    if (isAigcLine(lines[i])) lastAigcIndex = i;
   }
+
+  if (lastAigcIndex >= 0) {
+    if (lines[lastAigcIndex].trim() === commentLine.trim()) {
+      return { action: "skipped", reason: "duplicate", count: aiLines };
+    }
+    if (!dryRun) {
+      lines.splice(lastAigcIndex + 1, 0, commentLine);
+      fs.writeFileSync(filePath, lines.join("\n"), "utf8");
+    }
+    return { action: "added", newCount: aiLines, appended: true };
+  }
+
+  const insertAt = findInsertPoint(lines, path.extname(filePath));
+  if (!dryRun) {
+    lines.splice(insertAt, 0, commentLine);
+    fs.writeFileSync(filePath, lines.join("\n"), "utf8");
+  }
+  return { action: "added", newCount: aiLines };
 }
 
 function removeAnnotation(filePath) {
@@ -394,7 +386,6 @@ function removeAnnotation(filePath) {
 
 function formatReport(results, totalFiles, verbose) {
   const added = results.filter(r => r.action === "added").length;
-  const updated = results.filter(r => r.action === "updated").length;
   const skipped = results.filter(r => r.action === "skipped" || r.action === "unsupported").length;
 
   let report = "";
@@ -402,7 +393,7 @@ function formatReport(results, totalFiles, verbose) {
   report += "AIGC 代码统计报告\n";
   report += SEP + "\n";
   report += `扫描文件数: ${totalFiles}\n`;
-  report += `已标注: ${added} 新增, ${updated} 更新\n`;
+  report += `已标注: ${added} 新增\n`;
   report += `跳过: ${skipped}\n`;
 
   if (!results.length) {

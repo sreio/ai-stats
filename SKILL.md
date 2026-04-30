@@ -1,6 +1,6 @@
 ---
 name: ai-stats
-description: AIGC 代码统计标注工具。在每个代码文件头部插入/更新 AIGC 注释标注 AI 工具、作者、行数、日期。支持扫描变更文件或全量扫描仓库。支持 PHP、JS、HTML、Python、Go、Shell、MySQL、Vue、TypeScript、Java、Rust、C/C++ 等主流语言。当用户提到 AIGC 统计、AI 代码标注、AI 生成行数、代码贡献标注、提交前标注、AI 占比时使用。跨平台支持 macOS/Linux/Windows。
+description: AIGC 代码统计标注工具。在每个代码文件头部插入 AIGC 注释标注 AI 工具、作者、行数、日期；已有 AIGC 注释时追加新行并保留历史。支持扫描变更文件或全量扫描仓库。支持 PHP、JS、HTML、Python、Go、Shell、MySQL、Vue、TypeScript、Java、Rust、C/C++ 等主流语言。当用户提到 AIGC 统计、AI 代码标注、AI 生成行数、代码贡献标注、提交前标注、AI 占比时使用。跨平台支持 macOS/Linux/Windows。
 license: MIT
 compatibility: node>=18
 user-invocable: true
@@ -148,9 +148,9 @@ git diff --numstat → insertions → 写入 AIGC 注释
 
 ### 更新逻辑
 
-- 已有 AIGC 注释且行数/日期未变 → 跳过
-- 已有 AIGC 注释但行数/日期变化 → 更新
-- 无 AIGC 注释 → 插入到头部
+- 文件中无 AIGC 注释 → 在头部插入一行
+- 文件中已有 AIGC 注释 → 始终在最后一条 AIGC 之后**追加新的一行**（保留历史轨迹，不修改已有行）
+- 若本次将写入的内容与最后一条 AIGC 完全一致 → 跳过（避免重复运行产生重复行）
 
 ### 注释风格（按语言自动匹配）
 
@@ -194,7 +194,7 @@ git diff --numstat → insertions → 写入 AIGC 注释
 AIGC 代码统计报告
 ============================================================
 扫描文件数: 119
-已标注: 108 新增, 0 更新
+已标注: 108 新增
 跳过: 11
 
 ----------------------------------------
